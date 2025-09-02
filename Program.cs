@@ -15,7 +15,7 @@ builder.Services.AddSwaggerGen();
 
 // configuring Cors
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "https://angulartemplate-five.vercel.app" };
+    ?? new[] { "https://angulartemplate-five.vercel.app", "http://localhost:4200" };
 
 builder.Services.AddCors(options =>
 {
@@ -47,7 +47,7 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.None : CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.Name = "AuthCookie";
     options.ExpireTimeSpan = TimeSpan.FromHours(24);
