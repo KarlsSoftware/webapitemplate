@@ -9,7 +9,7 @@ This document explains the authentication system implemented in this Web API pro
 - `Microsoft.AspNetCore.Authentication.JwtBearer` - JWT Bearer token authentication
 - `System.IdentityModel.Tokens.Jwt` - JWT token creation and validation
 
-### 2. **User Entity (`Entities/User.cs`)**
+### 2.**User Entity (`Entities/User.cs`)**
 ```csharp
 public class User : IdentityUser
 {
