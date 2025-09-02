@@ -103,6 +103,9 @@ namespace WebAPI.Controllers
                 return BadRequest(ModelState);
 
             var currentEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(currentEmail))
+                return Unauthorized(new { message = "User not authenticated" });
+            
             var user = await _userManager.FindByEmailAsync(currentEmail);
 
             if (user == null)
