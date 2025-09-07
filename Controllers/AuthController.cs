@@ -64,7 +64,8 @@ namespace WebAPI.Controllers
                 {
                     Email = user?.Email,
                     FirstName = user?.FirstName,
-                    LastName = user?.LastName
+                    LastName = user?.LastName,
+                    ProfilePicture = user?.ProfilePicture
                 });
             }
 
@@ -81,17 +82,22 @@ namespace WebAPI.Controllers
 
         [HttpGet("me")]
         [Authorize]
-        public IActionResult GetCurrentUser()
+        public async Task<IActionResult> GetCurrentUser()
         {
             var email = User.FindFirst(ClaimTypes.Email)?.Value;
-            var firstName = User.FindFirst("FirstName")?.Value;
-            var lastName = User.FindFirst("LastName")?.Value;
+            if (string.IsNullOrEmpty(email))
+                return Unauthorized();
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                return NotFound();
 
             return Ok(new
             {
-                Email = email,
-                FirstName = firstName,
-                LastName = lastName
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                ProfilePicture = user.ProfilePicture
             });
         }
 
@@ -142,12 +148,83 @@ namespace WebAPI.Controllers
                     {
                         Email = user.Email,
                         FirstName = user.FirstName,
-                        LastName = user.LastName
+                        LastName = user.LastName,
+                        ProfilePicture = user.ProfilePicture
                     }
                 });
             }
 
             return BadRequest(new { message = "Failed to update profile", errors = result.Errors });
+        }
+
+        [HttpPost("upload-profile-picture")]
+        [Authorize]
+        public async Task<IActionResult> UploadProfilePicture([FromForm] IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file uploaded" });
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExtension))
+                return BadRequest(new { message = "Only JPG and PNG files are allowed" });
+
+            // Validate file size (5MB)
+            if (file.Length > 5 * 1024 * 1024)
+                return BadRequest(new { message = "File size cannot exceed 5MB" });
+
+            var currentEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(currentEmail))
+                return Unauthorized(new { message = "User not authenticated" });
+
+            var user = await _userManager.FindByEmailAsync(currentEmail);
+            if (user == null)
+                return NotFound(new { message = "User not found" });
+
+            try
+            {
+                // Create uploads directory if it doesn't exist
+                var uploadsPath = Path.Combine("wwwroot", "uploads", "profile-pictures");
+                if (!Directory.Exists(uploadsPath))
+                    Directory.CreateDirectory(uploadsPath);
+
+                // Delete old profile picture if it exists
+                if (!string.IsNullOrEmpty(user.ProfilePicture))
+                {
+                    var oldFilePath = Path.Combine("wwwroot", user.ProfilePicture.TrimStart('/'));
+                    if (System.IO.File.Exists(oldFilePath))
+                        System.IO.File.Delete(oldFilePath);
+                }
+
+                // Generate unique filename
+                var fileName = $"{user.Id}_{Guid.NewGuid()}{fileExtension}";
+                var filePath = Path.Combine(uploadsPath, fileName);
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Update user profile picture path (relative to wwwroot)
+                user.ProfilePicture = $"/uploads/profile-pictures/{fileName}";
+                var result = await _userManager.UpdateAsync(user);
+
+                if (result.Succeeded)
+                {
+                    return Ok(new { 
+                        message = "Profile picture uploaded successfully",
+                        profilePicture = user.ProfilePicture
+                    });
+                }
+
+                return BadRequest(new { message = "Failed to update profile picture" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while uploading the file" });
+            }
         }
     }
 
@@ -170,6 +247,7 @@ namespace WebAPI.Controllers
         public string? Email { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+        public string? ProfilePicture { get; set; }
     }
 
     public class UpdateProfileModel

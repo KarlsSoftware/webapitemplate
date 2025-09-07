@@ -47,8 +47,8 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.None : CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP in development
+    options.Cookie.SameSite = SameSiteMode.Lax; // Change to Lax for better compatibility
     options.Cookie.Name = "AuthCookie";
     options.ExpireTimeSpan = TimeSpan.FromHours(24);
     options.SlidingExpiration = true;
@@ -74,6 +74,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Enable static files for uploaded content
+app.UseStaticFiles();
 
 // enabling Cors
 app.UseCors();
